@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 using UnityEngine.XR.ARFoundation;
 using UnityEngine.XR.ARSubsystems;
 
@@ -20,10 +21,11 @@ public class PlaceBrick : MonoBehaviour
     public Color[] colors;
     private int colorIndex;
 
-    /// <summary>
-    /// The object instantiated as a result of a successful raycast intersection with a plane.
-    /// </summary>
-    public GameObject spawnedObject { get; private set; }
+    public float[] sizes;
+    private int sizeIndex;
+
+    public GameObject sizeButton;
+    public GameObject clearButton;
 
     void Awake()
     {
@@ -53,62 +55,68 @@ public class PlaceBrick : MonoBehaviour
         return colors[colorIndex];
     }
 
+    public void SwitchBrickSize()
+    {
+        sizeIndex++;
+        sizeIndex = sizeIndex > sizes.Length - 1 ? 0 : sizeIndex;
+    }
+    public float GetNextBrickSize()
+    {
+        return sizes[sizeIndex];
+    }
+
     void Update()
     {
         if (!TryGetTouchPosition(out Vector2 touchPosition))
             return;
 
-        Debug.Log("width: " + touchPosition.x / Screen.width);
-        Debug.Log("how high:" + touchPosition.y / Screen.height);
-
         if (Input.touchCount >= 1)
         {
-            //if (Input.touches[0].phase == TouchPhase.Began)
-            //{
-            //}
+
 
             if (Input.touches[0].phase == TouchPhase.Ended)
             {
-                if (m_RaycastManager.Raycast(touchPosition, s_Hits, TrackableType.PlaneWithinPolygon))
+                Ray raycast = Camera.main.ScreenPointToRay(Input.GetTouch(0).position);
+                RaycastHit raycastHit;
+                GameObject newBrick = null;
+                // start wall
+                if (wall.transform.childCount == 0)
                 {
+                    if (m_RaycastManager.Raycast(touchPosition, s_Hits, TrackableType.PlaneWithinPolygon))
+                    {
                     // Raycast hits are sorted by distance, so the first one
                     // will be the closest hit.
                     var hitPose = s_Hits[0].pose;
 
-                    // start wall
-                    if(wall.transform.childCount == 0)
-                    {
                         wall.transform.position = hitPose.position;
-                        wall.transform.rotation = hitPose.rotation.normalized;
-                        spawnedObject = Instantiate(brickPrefab, wall.transform);
+                        newBrick = Instantiate(brickPrefab, wall.transform.position, Quaternion.identity);
+                        sizeButton.SetActive(false);
+                        clearButton.SetActive(true);
                     }
                 }
-
-                
-                Ray raycast = Camera.main.ScreenPointToRay(Input.GetTouch(0).position);
-                RaycastHit raycastHit;
                 // check to see if it should add a brick to the existing wall
-                if (Physics.Raycast(raycast, out raycastHit))
+                else if (Physics.Raycast(raycast, out raycastHit))
                 {
                     Collider brickCollider = raycastHit.collider;
                     if (brickCollider.tag == "Brick")
                     {
-                        var hitPose = raycastHit.point;
+                        var hitPose = raycastHit.normal;
                         Vector3 spawnPose = brickCollider.transform.position;
                         // placement math
                         spawnPose.z = brickCollider.transform.position.z;
+
 
                         float xDif = Mathf.Abs(hitPose.x) - Mathf.Abs(brickCollider.transform.position.x);
                         float yDif = Mathf.Abs(hitPose.y) - Mathf.Abs(brickCollider.transform.position.y);
                         if (xDif > yDif)
                         {
-                            Debug.Log("side");
-                            spawnPose.x += hitPose.x > brickCollider.transform.position.x ? brickCollider.transform.localScale.x : -brickCollider.transform.localScale.x;
+                            float xScale = GetNextBrickSize() * brickCollider.transform.localScale.x;
+                            spawnPose.x += hitPose.x > brickCollider.transform.position.x ? xScale : -xScale;
                         }
                         else
                         {
-                            Debug.Log("high or low");
-                            spawnPose.y += hitPose.y > brickCollider.transform.position.y ? brickCollider.transform.localScale.y : -brickCollider.transform.localScale.y;
+                            float yScale = GetNextBrickSize() * brickCollider.transform.localScale.y;
+                            spawnPose.y += hitPose.y > brickCollider.transform.position.y ? yScale : -yScale;
                         }
 
                         // no duplicate locations
@@ -117,16 +125,19 @@ public class PlaceBrick : MonoBehaviour
                             if (placedbrick.position == spawnPose)
                                 return;
                         }
-                        spawnedObject = Instantiate(brickPrefab, spawnPose, Quaternion.identity);
+                        newBrick = Instantiate(brickPrefab, spawnPose, Quaternion.identity);
+                    }
+                    // if nothing is placed
+                    else
+                    {
+                        return;
                     }
                 }
-                //// if it never collids
-                //else
-                //{
-                //    return;
-                //}
-                spawnedObject.GetComponentInChildren<MeshRenderer>().material.color = GetNextBrickColor();
-                spawnedObject.transform.parent = wall.transform;
+
+                // set size, parent and color
+                newBrick.GetComponentInChildren<MeshRenderer>().material.color = GetNextBrickColor();
+                newBrick.transform.parent = wall.transform;
+                newBrick.transform.localScale *= GetNextBrickSize();
             }
         }
     }
