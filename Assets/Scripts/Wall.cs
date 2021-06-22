@@ -10,8 +10,8 @@ public class Wall : MonoBehaviour
 
     public void Save()
     {
-        string json = JsonUtility.ToJson();
-        Debug.Log(json);
+        //string json = JsonUtility.ToJson();
+        //Debug.Log(json);
     }
 
     public void LoadWall()
