@@ -2,17 +2,16 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
+using System.Runtime;
+
 public class Wall : MonoBehaviour
 {
-
-    struct Brick
-    {
-        Color color;
-        Vector2 position;
-    }
+    public Save bricks;
 
     public void Save()
     {
+        string json = JsonUtility.ToJson();
+        Debug.Log(json);
     }
 
     public void LoadWall()
